@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here.
 
+## [1.4.6] - 2026-08-07
+
+### Fixed
+- Aspect ratio and frame rate sensors refresh 5 seconds after a source change (signal info lags set-channel)
+
+## [1.4.5] - 2026-08-07
+
+### Changed
+- Code consolidation: `mwapi.py` (HTTP/auth), shared `entity.py` base, merged `api_normalize` + source encoding
+- Removed duplicate modules (`auth`, `http_session`, `source_encoding`, `service_helpers`)
+- Trimmed HACS/docs duplication (`info.md`, `dashboard-buttons.md`)
+
 ## [1.4.4] - 2026-08-07
 
 ### Fixed

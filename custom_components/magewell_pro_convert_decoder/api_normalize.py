@@ -1,8 +1,33 @@
-"""Normalize Magewell mwapi JSON (docs use kebab-case; firmware may differ)."""
+"""Normalize Magewell mwapi JSON and source option strings."""
 
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
+
+NDI_PREFIX = "[NDI] "
+PRESET_PREFIX = "[Preset] "
+
+
+def encode_source_option(is_ndi: bool, name: str) -> str:
+    """Build option string shown in UI and stored by scenes."""
+    return (NDI_PREFIX if is_ndi else PRESET_PREFIX) + name
+
+
+def decode_source_option(option: str) -> tuple[bool, str]:
+    """Return (is_ndi, source_name) for mwapi set-channel."""
+    if option.startswith(NDI_PREFIX):
+        return True, option[len(NDI_PREFIX) :]
+    if option.startswith(PRESET_PREFIX):
+        return False, option[len(PRESET_PREFIX) :]
+    raise ValueError("Invalid source option")
+
+
+def build_ntkndi_url(ndi_stream_name: str, ip_port: str, buffer_ms: int) -> str:
+    """Preset URL for NDI via add-channel (Magewell ntkndi scheme)."""
+    qn = quote(ndi_stream_name, safe="")
+    qu = quote(ip_port, safe="")
+    return f"ntkndi://ndi?name={qn}&url={qu}&mw-buffer-duration={buffer_ms}"
 
 
 def first_str(obj: dict[str, Any], *keys: str) -> str | None:

@@ -331,6 +331,12 @@ Device API reference: [Magewell mwapi docs](https://www.magewell.com/api-docs/pr
 
 ---
 
+## Developer / agent handoff
+
+See [AGENTS.md](AGENTS.md) for architecture, mwapi notes, config flow constraints, release workflow, and rebuild checklist.
+
+---
+
 ## Disclaimer
 
 Community integration — not affiliated with Magewell. Product names are used for identification only.

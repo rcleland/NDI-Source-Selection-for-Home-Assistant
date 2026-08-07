@@ -8,10 +8,10 @@ from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
 )
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import MagewellDecoderCoordinator
+from .entity import MagewellEntity
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
@@ -19,9 +19,7 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
     async_add_entities([MagewellDecoderReachableEntity(coordinator)])
 
 
-class MagewellDecoderReachableEntity(CoordinatorEntity[MagewellDecoderCoordinator], BinarySensorEntity):
-    """True when Decoder API ping reports status 0 (device ready)."""
-
+class MagewellDecoderReachableEntity(MagewellEntity, BinarySensorEntity):
     _attr_has_entity_name = True
     _attr_translation_key = "decoder_reachable"
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
@@ -52,7 +50,3 @@ class MagewellDecoderReachableEntity(CoordinatorEntity[MagewellDecoderCoordinato
             "auth_configured": data.get("auth_configured"),
             "auth_required_by_device": data.get("auth_required_by_device"),
         }
-
-    @property
-    def device_info(self):
-        return self.coordinator.device_info

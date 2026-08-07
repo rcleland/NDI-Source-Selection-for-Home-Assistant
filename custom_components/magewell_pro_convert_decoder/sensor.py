@@ -1,15 +1,15 @@
-"""Sensors: current source name, video aspect ratio, frame rate (field-rate)."""
+"""Sensors: current source name, aspect ratio, frame rate."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api_normalize import ndi_display_name, ndi_source_address, video_aspect_ratio, video_field_rate
 from .const import DOMAIN
 from .coordinator import MagewellDecoderCoordinator
+from .entity import MagewellEntity
 
 
 async def async_setup_entry(hass, entry, async_add_entities) -> None:
@@ -23,23 +23,7 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
     )
 
 
-class _MagewellSensor(CoordinatorEntity[MagewellDecoderCoordinator], SensorEntity):
-    """Explicit _attr_name on subclasses so UI shows a label, not only device + state."""
-
-    @property
-    def available(self) -> bool:
-        if self.coordinator.data is None:
-            return False
-        return bool(self.coordinator.data.get("reachable"))
-
-    @property
-    def device_info(self):
-        return self.coordinator.device_info
-
-
-class MagewellSourceNameSensor(_MagewellSensor):
-    """Source name from get-channel."""
-
+class MagewellSourceNameSensor(MagewellEntity, SensorEntity):
     _attr_has_entity_name = False
     _attr_name = "Active source name"
 
@@ -50,35 +34,26 @@ class MagewellSourceNameSensor(_MagewellSensor):
     @property
     def native_value(self) -> str | None:
         data = self.coordinator.data
-        if not data:
-            return None
-        src = data.get("current_source")
-        if not src:
+        if not data or not (src := data.get("current_source")):
             return None
         return str(src.get("name", "")) or None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
         data = self.coordinator.data
-        if not data:
-            return None
-        src = data.get("current_source")
-        if not src:
+        if not data or not (src := data.get("current_source")):
             return None
         attrs: dict[str, Any] = {"ndi_source": src.get("ndi_name")}
         if src.get("ndi_name"):
             for item in data.get("ndi_sources") or []:
                 if isinstance(item, dict) and ndi_display_name(item) == src.get("name"):
-                    addr = ndi_source_address(item)
-                    if addr:
+                    if addr := ndi_source_address(item):
                         attrs["ip_addr"] = addr
                     break
         return attrs
 
 
-class MagewellAspectRatioSensor(_MagewellSensor):
-    """aspect-ratio from get-signal-info video-info."""
-
+class MagewellAspectRatioSensor(MagewellEntity, SensorEntity):
     _attr_has_entity_name = False
     _attr_name = "Video aspect ratio"
 
@@ -89,18 +64,13 @@ class MagewellAspectRatioSensor(_MagewellSensor):
     @property
     def native_value(self) -> str | None:
         data = self.coordinator.data
-        if not data:
-            return None
-        vi = data.get("video_info")
-        if not isinstance(vi, dict):
+        if not data or not isinstance(vi := data.get("video_info"), dict):
             return None
         ar = video_aspect_ratio(vi)
         return str(ar) if ar is not None else None
 
 
-class MagewellFrameRateSensor(_MagewellSensor):
-    """field-rate from get-signal-info video-info (displayed as fps)."""
-
+class MagewellFrameRateSensor(MagewellEntity, SensorEntity):
     _attr_has_entity_name = False
     _attr_name = "Video frame rate"
     _attr_native_unit_of_measurement = "fps"
@@ -113,9 +83,6 @@ class MagewellFrameRateSensor(_MagewellSensor):
     @property
     def native_value(self) -> float | None:
         data = self.coordinator.data
-        if not data:
-            return None
-        vi = data.get("video_info")
-        if not isinstance(vi, dict):
+        if not data or not isinstance(vi := data.get("video_info"), dict):
             return None
         return video_field_rate(vi)

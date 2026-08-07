@@ -3,13 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from datetime import timedelta
-from typing import Any
-from urllib.parse import quote
+from typing import Any, Callable
 
-import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
@@ -17,6 +14,11 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from .api_normalize import (
+    NDI_PREFIX,
+    PRESET_PREFIX,
+    build_ntkndi_url,
+    decode_source_option,
+    encode_source_option,
     extract_video_info,
     ndi_display_name,
     ndi_source_address,
@@ -24,9 +26,6 @@ from .api_normalize import (
     normalize_preset_channels,
     parse_current_channel,
 )
-from .auth import password_md5_hex
-from .host_util import build_origin_url
-from .http_session import async_create_magewell_session
 from .const import (
     CONF_PASSWORD,
     CONF_USE_SSL,
@@ -34,31 +33,28 @@ from .const import (
     CONF_VERIFY_SSL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    SOURCE_SIGNAL_REFRESH_DELAY,
 )
-from .source_encoding import (
-    NDI_PREFIX,
-    PRESET_PREFIX,
-    decode_source_option,
-    encode_source_option,
-)
+from .host_util import build_origin_url
+from .mwapi import async_create_magewell_session, async_mwapi_json, password_md5_hex
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def build_base_url(entry: ConfigEntry) -> str:
-    """Build origin URL (scheme + host + port) from config entry."""
-    return build_origin_url(
-        entry.data["host"],
-        int(entry.data["port"]),
-        entry.data[CONF_USE_SSL],
-    )
+def _api_status(body: dict[str, Any] | None) -> int | None:
+    return body.get("status") if isinstance(body, dict) else None
 
 
-def build_ntkndi_url(ndi_stream_name: str, ip_port: str, buffer_ms: int) -> str:
-    """Preset URL for NDI via add-channel (Magewell ntkndi scheme)."""
-    qn = quote(ndi_stream_name, safe="")
-    qu = quote(ip_port, safe="")
-    return f"ntkndi://ndi?name={qn}&url={qu}&mw-buffer-duration={buffer_ms}"
+def _parse_on_ok(
+    result: tuple[int | None, dict[str, Any] | None],
+    parser: Callable[[dict[str, Any]], Any],
+) -> tuple[int | None, Any]:
+    """Return API status and parsed data when status == 0."""
+    _http, body = result
+    status = _api_status(body)
+    if status == 0 and isinstance(body, dict):
+        return status, parser(body)
+    return status, None
 
 
 class MagewellDecoderCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -68,7 +64,11 @@ class MagewellDecoderCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.config_entry = entry
-        self._base_url = build_base_url(entry)
+        self._base_url = build_origin_url(
+            entry.data["host"],
+            int(entry.data["port"]),
+            entry.data[CONF_USE_SSL],
+        )
         verify_ssl = entry.data.get(CONF_VERIFY_SSL, True)
         self._session = async_create_magewell_session(hass, verify_ssl=verify_ssl)
         scan_seconds = int(entry.options.get("scan_interval", DEFAULT_SCAN_INTERVAL))
@@ -78,10 +78,29 @@ class MagewellDecoderCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             name=DOMAIN,
             update_interval=timedelta(seconds=scan_seconds),
         )
+        self._signal_refresh_task: asyncio.Task[None] | None = None
+
+    def cancel_pending_refresh(self) -> None:
+        if self._signal_refresh_task and not self._signal_refresh_task.done():
+            self._signal_refresh_task.cancel()
+        self._signal_refresh_task = None
+
+    async def _on_source_changed(self) -> None:
+        """Refresh now (source name) and again after signal lock delay (aspect/fps)."""
+        await self.async_request_refresh()
+        self.cancel_pending_refresh()
+
+        async def _delayed_signal_refresh() -> None:
+            try:
+                await asyncio.sleep(SOURCE_SIGNAL_REFRESH_DELAY)
+                await self.async_request_refresh()
+            except asyncio.CancelledError:
+                pass
+
+        self._signal_refresh_task = asyncio.create_task(_delayed_signal_refresh())
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Shared device info for all entities."""
         return DeviceInfo(
             identifiers={(DOMAIN, self.config_entry.entry_id)},
             name=self.config_entry.title,
@@ -90,49 +109,21 @@ class MagewellDecoderCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             configuration_url=self._base_url,
         )
 
-    async def _mwapi_json(
+    async def _mwapi(
         self, method: str, extra_params: dict[str, str] | None = None
     ) -> tuple[int | None, dict[str, Any] | None]:
-        """GET mwapi with method=… and optional extra query params."""
-        params: dict[str, str] = {"method": method}
-        if extra_params:
-            for k, v in extra_params.items():
-                params[k] = v if isinstance(v, str) else str(v)
-        try:
-            async with self._session.get(
-                f"{self._base_url}/mwapi",
-                params=params,
-                timeout=aiohttp.ClientTimeout(total=15),
-            ) as resp:
-                text = await resp.text()
-        except aiohttp.ClientError as err:
-            _LOGGER.debug("mwapi %s failed: %s", method, err)
-            return None, None
-
-        if resp.status != 200:
-            return resp.status, None
-        try:
-            return resp.status, json.loads(text)
-        except json.JSONDecodeError:
-            _LOGGER.debug("mwapi %s returned non-JSON: %s", method, text[:200])
-            return resp.status, None
+        return await async_mwapi_json(self._session, self._base_url, method, extra_params)
 
     async def async_select_source(self, option: str) -> None:
-        """Apply set-channel for a select option string."""
         try:
             is_ndi, name = decode_source_option(option)
         except ValueError as err:
             raise HomeAssistantError("Invalid source selection") from err
-
         await self._set_channel(name=name, is_ndi=is_ndi)
 
     async def async_switch_source_by_name(
         self, source: str, *, source_type: str = "auto"
     ) -> None:
-        """Switch to a preset or NDI source using a plain name (for buttons/automations).
-
-        source_type: auto (default), ndi, or preset.
-        """
         source = source.strip()
         if not source:
             raise HomeAssistantError("source is required")
@@ -152,33 +143,30 @@ class MagewellDecoderCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await self.async_set_ndi_stream_name(source)
             return
 
-        preset_names: set[str] = set()
         if self.data:
-            for ch in self.data.get("preset_channels") or []:
-                n = ch.get("name")
-                if isinstance(n, str) and n.strip():
-                    preset_names.add(n.strip())
+            preset_names = {
+                ch.get("name", "").strip()
+                for ch in self.data.get("preset_channels") or []
+                if isinstance(ch.get("name"), str) and ch.get("name", "").strip()
+            }
             for row in self.data.get("ndi_sources") or []:
                 if isinstance(row, dict) and ndi_display_name(row) == source:
                     await self.async_set_ndi_stream_name(source)
                     return
+            if source in preset_names:
+                await self._set_channel(name=source, is_ndi=False)
+                return
 
-        if source in preset_names:
-            await self._set_channel(name=source, is_ndi=False)
-            return
-
-        _st, ndi_probe = await self._mwapi_json(
-            "set-channel",
-            {"ndi-name": "true", "name": source},
+        _st, probe = await self._mwapi(
+            "set-channel", {"ndi-name": "true", "name": source}
         )
-        if ndi_probe is not None and ndi_probe.get("status") == 0:
-            await self.async_request_refresh()
+        if probe is not None and probe.get("status") == 0:
+            await self._on_source_changed()
             return
-
         await self._set_channel(name=source, is_ndi=False)
 
     async def _set_channel(self, name: str, *, is_ndi: bool) -> None:
-        _status, data = await self._mwapi_json(
+        _status, data = await self._mwapi(
             "set-channel",
             {"ndi-name": "true" if is_ndi else "false", "name": name},
         )
@@ -188,7 +176,7 @@ class MagewellDecoderCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise HomeAssistantError(
                 f"set-channel rejected (status {data.get('status')!r})"
             )
-        await self.async_request_refresh()
+        await self._on_source_changed()
 
     async def async_set_ndi_stream_name(
         self,
@@ -198,17 +186,15 @@ class MagewellDecoderCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         preset_label: str = "HA NDI",
         buffer_duration: int = 60,
     ) -> None:
-        """Select an NDI source by exact stream name; fall back to ntkndi preset + add-channel."""
         ndi_name = ndi_name.strip()
         if not ndi_name:
             raise HomeAssistantError("ndi_name is required")
 
-        _st, probe = await self._mwapi_json(
-            "set-channel",
-            {"ndi-name": "true", "name": ndi_name},
+        _st, probe = await self._mwapi(
+            "set-channel", {"ndi-name": "true", "name": ndi_name}
         )
         if probe is not None and probe.get("status") == 0:
-            await self.async_request_refresh()
+            await self._on_source_changed()
             return
 
         ip = (ndi_ip_port or "").strip()
@@ -221,13 +207,12 @@ class MagewellDecoderCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not ip:
             raise HomeAssistantError(
                 "set-channel for this NDI name was rejected and no IP:port was found. "
-                "Pass ndi_ip_port (host:port from discovery, e.g. 192.168.1.10:5961) or "
-                "wait until get-ndi-sources lists this stream."
+                "Pass ndi_ip_port or wait until get-ndi-sources lists this stream."
             )
 
-        url = build_ntkndi_url(ndi_name, ip, buffer_duration)
-        await self._add_or_update_preset(preset_label.strip() or "HA NDI", url)
-        await self._set_channel(name=preset_label.strip() or "HA NDI", is_ndi=False)
+        label = preset_label.strip() or "HA NDI"
+        await self._add_or_update_preset(label, build_ntkndi_url(ndi_name, ip, buffer_duration))
+        await self._set_channel(name=label, is_ndi=False)
 
     async def async_set_http_stream(
         self,
@@ -236,7 +221,6 @@ class MagewellDecoderCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         *,
         update_if_exists: bool = True,
     ) -> None:
-        """Add or update an HTTP (or other) preset URL and select it."""
         channel_name = channel_name.strip()
         url = url.strip()
         if not channel_name or not url:
@@ -247,32 +231,28 @@ class MagewellDecoderCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _add_or_update_preset(
         self, name: str, url: str, *, update_if_exists: bool = True
     ) -> None:
-        _lst_st, lst = await self._mwapi_json("list-channels")
+        _lst_st, lst = await self._mwapi("list-channels")
         names: set[str] = set()
         if lst and lst.get("status") == 0:
-            for ch in normalize_preset_channels(lst):
-                n = ch.get("name")
-                if isinstance(n, str):
-                    names.add(n)
+            names = {
+                ch["name"]
+                for ch in normalize_preset_channels(lst)
+                if isinstance(ch.get("name"), str)
+            }
 
         if name in names and update_if_exists:
-            _st, data = await self._mwapi_json(
-                "modify-channel",
-                {"name": name, "new-name": name, "url": url},
+            _st, data = await self._mwapi(
+                "modify-channel", {"name": name, "new-name": name, "url": url}
             )
         else:
-            _st, data = await self._mwapi_json(
-                "add-channel",
-                {"name": name, "url": url},
-            )
+            _st, data = await self._mwapi("add-channel", {"name": name, "url": url})
             if (
                 data is not None
                 and data.get("status") != 0
                 and update_if_exists
             ):
-                _st, data = await self._mwapi_json(
-                    "modify-channel",
-                    {"name": name, "new-name": name, "url": url},
+                _st, data = await self._mwapi(
+                    "modify-channel", {"name": name, "new-name": name, "url": url}
                 )
 
         if data is None:
@@ -283,14 +263,12 @@ class MagewellDecoderCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
 
     async def _async_ensure_logged_in(self) -> None:
-        """Login so session cookie is set for protected mwapi calls (status 37 if skipped)."""
         username = (self.config_entry.data.get(CONF_USERNAME) or "").strip()
         password = self.config_entry.data.get(CONF_PASSWORD) or ""
         if not username or not password:
             return
-        _s, data = await self._mwapi_json(
-            "login",
-            {"id": username, "pass": password_md5_hex(password)},
+        _s, data = await self._mwapi(
+            "login", {"id": username, "pass": password_md5_hex(password)}
         )
         if data is None or data.get("status") != 0:
             _LOGGER.warning(
@@ -302,67 +280,38 @@ class MagewellDecoderCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update_data(self) -> dict[str, Any]:
         await self._async_ensure_logged_in()
 
-        ping_task = self._mwapi_json("ping")
-        ndi_task = self._mwapi_json("get-ndi-sources")
-        list_task = self._mwapi_json("list-channels")
-        channel_task = self._mwapi_json("get-channel")
-        signal_task = self._mwapi_json("get-signal-info")
-
-        (
-            ping_result,
-            ndi_result,
-            list_result,
-            channel_result,
-            signal_result,
-        ) = await asyncio.gather(
-            ping_task, ndi_task, list_task, channel_task, signal_task
+        ping_r, ndi_r, list_r, channel_r, signal_r = await asyncio.gather(
+            self._mwapi("ping"),
+            self._mwapi("get-ndi-sources"),
+            self._mwapi("list-channels"),
+            self._mwapi("get-channel"),
+            self._mwapi("get-signal-info"),
         )
 
-        ping_status, ping_data = ping_result
-        reachable = ping_status == 200 and (
-            isinstance(ping_data, dict) and ping_data.get("status") == 0
-        )
+        ping_status, ping_data = ping_r
+        reachable = ping_status == 200 and _api_status(ping_data) == 0
 
-        ndi_sources: list[dict[str, Any]] = []
-        ndi_api_status: int | None = None
-        if isinstance(ndi_result[1], dict):
-            ndi_api_status = ndi_result[1].get("status")
-            if ndi_result[1].get("status") == 0:
-                ndi_sources = normalize_ndi_sources(ndi_result[1])
+        ndi_status, ndi_sources = _parse_on_ok(ndi_r, normalize_ndi_sources)
+        list_status, preset_channels = _parse_on_ok(list_r, normalize_preset_channels)
 
-        preset_channels: list[dict[str, Any]] = []
-        list_api_status: int | None = None
-        if isinstance(list_result[1], dict):
-            list_api_status = list_result[1].get("status")
-            if list_result[1].get("status") == 0:
-                preset_channels = normalize_preset_channels(list_result[1])
+        channel_status = _api_status(channel_r[1])
+        ch_body = channel_r[1]
+        if channel_status == 37:
+            current_source = None
+        elif isinstance(ch_body, dict):
+            current_source = parse_current_channel(ch_body)
+        else:
+            current_source = None
 
-        current_source: dict[str, Any] | None = None
-        channel_api_status: int | None = None
-        ch_body = channel_result[1]
-        if isinstance(ch_body, dict):
-            channel_api_status = ch_body.get("status")
-            if ch_body.get("status") == 37:
-                current_source = None
-            else:
-                current_source = parse_current_channel(ch_body)
-
-        video_info: dict[str, Any] | None = None
-        signal_api_status: int | None = None
-        if isinstance(signal_result[1], dict):
-            signal_api_status = signal_result[1].get("status")
-            if signal_result[1].get("status") == 0:
-                video_info = extract_video_info(signal_result[1])
+        signal_status, video_info = _parse_on_ok(signal_r, extract_video_info)
 
         select_options: list[str] = []
-        for src in ndi_sources:
-            label = ndi_display_name(src)
-            if label:
+        for src in ndi_sources or []:
+            if label := ndi_display_name(src):
                 select_options.append(encode_source_option(True, label))
-        for ch in preset_channels:
-            n = ch.get("name")
-            if isinstance(n, str) and n.strip():
-                select_options.append(encode_source_option(False, n.strip()))
+        for ch in preset_channels or []:
+            if isinstance(ch.get("name"), str) and (n := ch["name"].strip()):
+                select_options.append(encode_source_option(False, n))
 
         current_select_option: str | None = None
         if current_source:
@@ -376,30 +325,24 @@ class MagewellDecoderCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             (self.config_entry.data.get(CONF_USERNAME) or "").strip()
             and self.config_entry.data.get(CONF_PASSWORD)
         )
-        auth_required = (
-            channel_api_status == 37
-            and not auth_configured
-            and reachable
-        )
 
         return {
             "reachable": reachable,
             "http_status": ping_status,
-            "api_status": (
-                ping_data.get("status") if isinstance(ping_data, dict) else None
-            ),
+            "api_status": _api_status(ping_data),
             "error": None if reachable else "ping_failed",
-            "raw_ping": ping_data,
-            "ndi_sources": ndi_sources,
-            "preset_channels": preset_channels,
+            "ndi_sources": ndi_sources or [],
+            "preset_channels": preset_channels or [],
             "current_source": current_source,
             "video_info": video_info,
             "select_options": select_options,
             "current_select_option": current_select_option,
-            "api_status_get_channel": channel_api_status,
-            "api_status_get_ndi_sources": ndi_api_status,
-            "api_status_list_channels": list_api_status,
-            "api_status_get_signal_info": signal_api_status,
+            "api_status_get_channel": channel_status,
+            "api_status_get_ndi_sources": ndi_status,
+            "api_status_list_channels": list_status,
+            "api_status_get_signal_info": signal_status,
             "auth_configured": auth_configured,
-            "auth_required_by_device": auth_required,
+            "auth_required_by_device": (
+                channel_status == 37 and not auth_configured and reachable
+            ),
         }

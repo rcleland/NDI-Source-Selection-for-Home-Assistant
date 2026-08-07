@@ -9,11 +9,11 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.helpers import config_validation as cv
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import config_validation as cv, entity_registry as er
 
 from .const import DOMAIN
 from .coordinator import MagewellDecoderCoordinator
-from .service_helpers import coordinator_from_service
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -67,6 +67,32 @@ SWITCH_SOURCE_SCHEMA = vol.All(
 )
 
 
+def _coordinator_from_service(
+    hass: HomeAssistant, call: ServiceCall
+) -> MagewellDecoderCoordinator:
+    """Return coordinator for config_entry_id or Source select entity_id."""
+    entry_id = call.data.get("config_entry_id")
+    entity_id = call.data.get("entity_id")
+
+    if entity_id:
+        entity = er.async_get(hass).async_get(entity_id)
+        if entity is None or entity.platform != DOMAIN:
+            raise HomeAssistantError(f"Entity {entity_id} is not from {DOMAIN}")
+        entry_id = entity.config_entry_id
+
+    if not entry_id:
+        raise HomeAssistantError(
+            "Provide config_entry_id or entity_id (Source select entity)"
+        )
+
+    coordinator = hass.data.get(DOMAIN, {}).get(entry_id)
+    if coordinator is None:
+        raise HomeAssistantError(
+            f"Magewell Decoder config entry is not loaded: {entry_id}"
+        )
+    return coordinator
+
+
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Register services once (scripts / scenes / automations)."""
 
@@ -74,7 +100,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         return True
 
     async def async_set_ndi_stream(call: ServiceCall) -> None:
-        coordinator = coordinator_from_service(hass, call)
+        coordinator = _coordinator_from_service(hass, call)
         await coordinator.async_set_ndi_stream_name(
             call.data["ndi_name"],
             ndi_ip_port=call.data.get("ndi_ip_port"),
@@ -83,7 +109,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         )
 
     async def async_set_http_stream(call: ServiceCall) -> None:
-        coordinator = coordinator_from_service(hass, call)
+        coordinator = _coordinator_from_service(hass, call)
         await coordinator.async_set_http_stream(
             call.data["channel_name"],
             call.data["url"],
@@ -91,7 +117,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         )
 
     async def async_switch_source(call: ServiceCall) -> None:
-        coordinator = coordinator_from_service(hass, call)
+        coordinator = _coordinator_from_service(hass, call)
         await coordinator.async_switch_source_by_name(
             call.data["source"],
             source_type=call.data["source_type"],
@@ -140,5 +166,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
+        coordinator = hass.data[DOMAIN].pop(entry.entry_id, None)
+        if coordinator is not None:
+            coordinator.cancel_pending_refresh()
     return unload_ok
