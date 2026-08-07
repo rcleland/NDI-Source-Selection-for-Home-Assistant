@@ -4,6 +4,60 @@ Use these patterns to build one-tap source switching on a Home Assistant dashboa
 
 Replace `select.magewell_decoder_source` with your **Source** entity (Settings → Developer tools → States).
 
+Preset names (`Apple TV`, `Google TV`, `Roku`, etc.) must match what you saved on the Magewell decoder.
+
+## Streaming sources (Apple TV, Google TV, Roku, …)
+
+Ready-made card layouts with icons:
+
+| Card style | File | Icons |
+| --- | --- | --- |
+| Native buttons (no HACS) | [streaming-source-bar-mdi.yaml](lovelace/streaming-source-bar-mdi.yaml) | MDI (`mdi:apple`, `mdi:google-chromecast`, …) |
+| Mushroom chips | [streaming-source-bar-mushroom.yaml](lovelace/streaming-source-bar-mushroom.yaml) | MDI |
+| Branded logos | [streaming-source-bar-branded.yaml](lovelace/streaming-source-bar-branded.yaml) | SVG icons from [icons/streaming/](icons/streaming/) |
+
+**Branded icons:** copy `docs/icons/streaming/` to `config/www/magewell-icons/streaming/`, then use the branded card YAML.
+
+**Scripts:** merge [scripts/streaming_sources.yaml](scripts/streaming_sources.yaml) into `scripts.yaml` for reusable actions with icons.
+
+**Icon reference:** [source-catalog.yaml](source-catalog.yaml) lists preset names and icon options per source.
+
+### Native button bar (copy-paste)
+
+```yaml
+type: horizontal-stack
+cards:
+  - type: button
+    name: Apple TV
+    icon: mdi:apple
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Apple TV
+  - type: button
+    name: Google TV
+    icon: mdi:google-chromecast
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Google TV
+  - type: button
+    name: Roku
+    icon: mdi:television-box
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Roku
+```
+
+See the full five-source bar (Fire TV, Cable) in [lovelace/streaming-source-bar-mdi.yaml](lovelace/streaming-source-bar-mdi.yaml).
+
 ## Option 1: `switch_source` service (recommended for buttons)
 
 Plain preset or NDI names — no `[Preset]` / `[NDI]` prefix required.

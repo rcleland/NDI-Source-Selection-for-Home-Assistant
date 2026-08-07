@@ -1,0 +1,59 @@
+# Merge into scripts.yaml (or include from configuration.yaml)
+# Replace select.magewell_decoder_source with your Source entity.
+# Preset names must match your Magewell decoder channels.
+
+magewell_source_apple_tv:
+  alias: Magewell → Apple TV
+  icon: mdi:apple
+  sequence:
+    - service: magewell_pro_convert_decoder.switch_source
+      data:
+        entity_id: select.magewell_decoder_source
+        source: Apple TV
+
+magewell_source_google_tv:
+  alias: Magewell → Google TV
+  icon: mdi:google-chromecast
+  sequence:
+    - service: magewell_pro_convert_decoder.switch_source
+      data:
+        entity_id: select.magewell_decoder_source
+        source: Google TV
+
+magewell_source_roku:
+  alias: Magewell → Roku
+  icon: mdi:television-box
+  sequence:
+    - service: magewell_pro_convert_decoder.switch_source
+      data:
+        entity_id: select.magewell_decoder_source
+        source: Roku
+
+magewell_source_fire_tv:
+  alias: Magewell → Fire TV
+  icon: mdi:amazon
+  sequence:
+    - service: magewell_pro_convert_decoder.switch_source
+      data:
+        entity_id: select.magewell_decoder_source
+        source: Fire TV
+
+magewell_source_cable:
+  alias: Magewell → Cable
+  icon: mdi:television-classic
+  sequence:
+    - service: magewell_pro_convert_decoder.switch_source
+      data:
+        entity_id: select.magewell_decoder_source
+        source: Cable
+
+# RTSP / URL example — edit channel_name and url
+magewell_source_security_cam:
+  alias: Magewell → Security cam
+  icon: mdi:cctv
+  sequence:
+    - service: magewell_pro_convert_decoder.set_http_stream
+      data:
+        entity_id: select.magewell_decoder_source
+        channel_name: Security cam
+        url: rtsp://192.168.1.20:554/stream

@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here.
 
+## [1.4.3] - 2026-08-07
+
+### Added
+- HACS publishing guide ([docs/HACS.md](docs/HACS.md)) with versioning and default-store steps
+- GitHub Release workflow (validates on tag push, creates release from CHANGELOG)
+
+### Changed
+- Manifest/documentation URLs point to `NDI-Source-Selection-for-Home-Assistant` repository
+
+## [1.4.2] - 2026-08-07
+
+### Added
+- Streaming source dashboard pack: Apple TV, Google TV, Roku, Fire TV, Cable
+- Branded SVG icons in `docs/icons/streaming/`
+- Ready-made Lovelace cards (native MDI, Mushroom, button-card branded)
+- Script templates in `docs/scripts/streaming_sources.yaml`
+- Source icon catalog in `docs/source-catalog.yaml`
+
 ## [1.4.1] - 2026-08-07
 
 ### Added

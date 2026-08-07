@@ -1,0 +1,55 @@
+# Streaming source button bar — native Home Assistant cards (MDI icons)
+# Replace select.magewell_decoder_source with your Source entity.
+# Preset names must match your Magewell decoder (edit source: values below).
+
+type: horizontal-stack
+cards:
+  - type: button
+    name: Apple TV
+    icon: mdi:apple
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Apple TV
+
+  - type: button
+    name: Google TV
+    icon: mdi:google-chromecast
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Google TV
+
+  - type: button
+    name: Roku
+    icon: mdi:television-box
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Roku
+
+  - type: button
+    name: Fire TV
+    icon: mdi:amazon
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Fire TV
+
+  - type: button
+    name: Cable
+    icon: mdi:television-classic
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Cable

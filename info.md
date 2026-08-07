@@ -9,7 +9,7 @@ Monitor and control [Magewell Pro Convert](https://www.magewell.com/products/pro
 - **Source select** — switch NDI sources and URL presets from the HA UI
 - **Reachability** — binary sensor for mwapi availability
 - **Stream metadata** — active source, aspect ratio, and frame rate sensors
-- **Automations** — services to switch by name, set NDI streams, or RTSP/HTTP URL presets; dashboard button examples in [docs/dashboard-buttons.md](docs/dashboard-buttons.md)
+- **Dashboard buttons** — Apple TV, Google TV, Roku, Fire TV presets with MDI or branded SVG icons; ready-made Lovelace YAML in [docs/lovelace/](docs/lovelace/)
 - **Hostname or IP** — use either address; switch anytime via **Configure**
 
 ## Supported devices
@@ -27,7 +27,7 @@ Not affiliated with or endorsed by Magewell. Product names are used for identifi
 ### HACS (recommended)
 
 1. Open **HACS → Integrations → ⋮ → Custom repositories**
-2. Add `https://github.com/rcleland/ha-magewell-pro-convert-decoder` (category: **Integration**)
+2. Add `https://github.com/rcleland/NDI-Source-Selection-for-Home-Assistant` (category: **Integration**)
 3. Search for **Magewell Pro Convert Decoder** and install
 4. Restart Home Assistant
 
@@ -66,7 +66,9 @@ Copy `custom_components/magewell_pro_convert_decoder/` into your `config/custom_
 
 All services accept `entity_id` (your Source select) or `config_entry_id`.
 
-**Dashboard examples:** [docs/dashboard-buttons.md](docs/dashboard-buttons.md)
+**Dashboard examples:** [docs/dashboard-buttons.md](docs/dashboard-buttons.md) · **Streaming source bar:** [docs/lovelace/streaming-source-bar-mdi.yaml](docs/lovelace/streaming-source-bar-mdi.yaml)
+
+**HACS versioning & default store:** [docs/HACS.md](docs/HACS.md)
 
 See [Magewell mwapi docs](https://www.magewell.com/api-docs/pro-convert-decoder-api/) for device API details.
 

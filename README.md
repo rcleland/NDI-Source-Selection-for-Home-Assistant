@@ -1,7 +1,7 @@
 # Magewell Pro Convert Decoder for Home Assistant
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![Validate](https://github.com/rcleland/ha-magewell-pro-convert-decoder/actions/workflows/validate.yml/badge.svg)](https://github.com/rcleland/ha-magewell-pro-convert-decoder/actions/workflows/validate.yml)
+[![Validate](https://github.com/rcleland/NDI-Source-Selection-for-Home-Assistant/actions/workflows/validate.yml/badge.svg)](https://github.com/rcleland/NDI-Source-Selection-for-Home-Assistant/actions/workflows/validate.yml)
 
 Home Assistant custom integration for [Magewell Pro Convert decoders](https://www.magewell.com/products/pro-convert-decoder). Switch NDI inputs and URL presets, monitor stream metadata, and build one-tap dashboard buttons — all over the local mwapi HTTP API.
 
@@ -14,7 +14,7 @@ Home Assistant custom integration for [Magewell Pro Convert decoders](https://ww
 | Goal | How |
 | --- | --- |
 | Pick a source from the HA UI | Use the **Source** dropdown entity |
-| One-tap button for "Apple TV" | Dashboard button → `switch_source` service |
+| One-tap buttons for Apple TV, Google TV, Roku, … | Pre-built card YAML + branded SVG icons |
 | One-tap button for an RTSP/HTTP URL | Dashboard button → `set_http_stream` service |
 | Switch on a schedule or trigger | Automation → same services |
 | See if the decoder is online | **Reachable** binary sensor |
@@ -26,13 +26,23 @@ Home Assistant custom integration for [Magewell Pro Convert decoders](https://ww
 
 ### HACS (recommended)
 
+**Today:** add as a custom repository (one-time setup):
+
 1. **HACS → Integrations → ⋮ → Custom repositories**
-2. Add `https://github.com/rcleland/ha-magewell-pro-convert-decoder` (category: **Integration**)
+2. Add `https://github.com/rcleland/NDI-Source-Selection-for-Home-Assistant` (category: **Integration**)
 3. Search for **Magewell Pro Convert Decoder**, install, and **restart Home Assistant**
+
+**Default HACS store (no custom repo):** requires a [submission to HACS default](docs/HACS.md#getting-into-the-default-hacs-store) — see [docs/HACS.md](docs/HACS.md).
 
 ### Manual
 
 Copy `custom_components/magewell_pro_convert_decoder/` into `config/custom_components/` and restart.
+
+### Versions and upgrades
+
+HACS tracks versions via **GitHub Releases**. After installing, use HACS → **Magewell Pro Convert Decoder** → select a release (e.g. `v1.4.2`) or **Update** when a new release is published.
+
+See [docs/HACS.md](docs/HACS.md) for the release checklist and publishing guide.
 
 ---
 
@@ -92,7 +102,56 @@ All integration services accept either:
 
 Replace `select.magewell_decoder_source` with your actual **Source** entity from Developer tools.
 
-### Switch to a saved preset (e.g. Apple TV)
+Preset names must match your Magewell decoder (e.g. if your Roku preset is named `Living Room Roku`, use that instead of `Roku`).
+
+### Streaming source button bar (Apple TV, Google TV, Roku, …)
+
+Copy one of these ready-made layouts into your dashboard (**Edit dashboard → Raw configuration editor**):
+
+| Style | File | Requirements |
+| --- | --- | --- |
+| Native buttons | [docs/lovelace/streaming-source-bar-mdi.yaml](docs/lovelace/streaming-source-bar-mdi.yaml) | None — uses MDI icons |
+| Mushroom chips | [docs/lovelace/streaming-source-bar-mushroom.yaml](docs/lovelace/streaming-source-bar-mushroom.yaml) | [Mushroom Cards](https://github.com/piitaya/lovelace-mushroom) (HACS) |
+| Branded logos | [docs/lovelace/streaming-source-bar-branded.yaml](docs/lovelace/streaming-source-bar-branded.yaml) | [button-card](https://github.com/custom-cards/button-card) (HACS) + copy [docs/icons/streaming/](docs/icons/streaming/) to `config/www/magewell-icons/streaming/` |
+
+**MDI icon mapping** (works in any button card):
+
+| Source | Icon | Service `source` value |
+| --- | --- | --- |
+| Apple TV | `mdi:apple` | `Apple TV` |
+| Google TV | `mdi:google-chromecast` | `Google TV` |
+| Roku | `mdi:television-box` | `Roku` |
+| Fire TV | `mdi:amazon` | `Fire TV` |
+| Cable / HDMI | `mdi:television-classic` | `Cable` |
+
+**Reusable scripts** with icons: merge [docs/scripts/streaming_sources.yaml](docs/scripts/streaming_sources.yaml) into `scripts.yaml`, then assign scripts to buttons.
+
+Quick native example:
+
+```yaml
+type: horizontal-stack
+cards:
+  - type: button
+    name: Google TV
+    icon: mdi:google-chromecast
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Google TV
+  - type: button
+    name: Roku
+    icon: mdi:television-box
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Roku
+```
+
+### Switch to a saved preset (single button)
 
 Best for presets or NDI sources already on the device. No `[Preset]` prefix needed.
 
@@ -173,7 +232,7 @@ magewell_apple_tv:
 
 Then set a button's tap action to **Perform action → Script: Magewell → Apple TV**.
 
-More card layouts (Mushroom chips, etc.): [docs/dashboard-buttons.md](docs/dashboard-buttons.md)
+More card layouts and automations: [docs/dashboard-buttons.md](docs/dashboard-buttons.md)
 
 ---
 

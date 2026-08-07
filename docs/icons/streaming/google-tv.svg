@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Google TV">
+  <rect width="256" height="256" rx="48" fill="#1a1a1a"/>
+  <circle cx="128" cy="128" r="72" fill="#4285F4"/>
+  <path d="M128 56a72 72 0 0 1 62.4 36H128V56z" fill="#EA4335"/>
+  <path d="M190.4 92A72 72 0 0 1 176 164l-48-48V92h62.4z" fill="#FBBC04"/>
+  <path d="M128 200a72 72 0 0 1-62.4-36H128v36z" fill="#34A853"/>
+  <circle cx="128" cy="128" r="28" fill="#1a1a1a"/>
+</svg>

@@ -1,0 +1,56 @@
+# Streaming source bar — Mushroom chips (MDI icons)
+# Requires: Mushroom Cards (HACS)
+# Replace select.magewell_decoder_source with your Source entity.
+
+type: custom:mushroom-chips-card
+alignment: center
+chips:
+  - type: template
+    icon: mdi:apple
+    content: Apple TV
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Apple TV
+
+  - type: template
+    icon: mdi:google-chromecast
+    content: Google TV
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Google TV
+
+  - type: template
+    icon: mdi:television-box
+    content: Roku
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Roku
+
+  - type: template
+    icon: mdi:amazon
+    content: Fire TV
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Fire TV
+
+  - type: template
+    icon: mdi:television-classic
+    content: Cable
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Cable

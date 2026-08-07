@@ -3,10 +3,10 @@
   "name": "Magewell Pro Convert Decoder",
   "codeowners": ["@rcleland"],
   "config_flow": true,
-  "documentation": "https://github.com/rcleland/ha-magewell-pro-convert-decoder",
+  "documentation": "https://github.com/rcleland/NDI-Source-Selection-for-Home-Assistant",
   "integration_type": "device",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/rcleland/ha-magewell-pro-convert-decoder/issues",
+  "issue_tracker": "https://github.com/rcleland/NDI-Source-Selection-for-Home-Assistant/issues",
   "requirements": [],
-  "version": "1.4.1"
+  "version": "1.4.3"
 }

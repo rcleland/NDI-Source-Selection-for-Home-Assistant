@@ -1,0 +1,127 @@
+# Streaming source bar — branded icons (button-card)
+# Requires: button-card (HACS)
+# 1. Copy docs/icons/streaming/ to config/www/magewell-icons/streaming/
+# 2. Replace select.magewell_decoder_source with your Source entity
+# 3. Edit preset names if your decoder uses different labels
+
+type: horizontal-stack
+cards:
+  - type: custom:button-card
+    name: Apple TV
+    show_name: true
+    show_icon: false
+    styles:
+      card:
+        - height: 96px
+      custom_fields:
+        icon:
+          - width: 48px
+          - height: 48px
+          - margin: 0 auto 8px
+    custom_fields:
+      icon: |
+        [[[
+          return `<img src="/local/magewell-icons/streaming/apple-tv.svg" width="48" height="48" alt="Apple TV">`;
+        ]]]
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Apple TV
+
+  - type: custom:button-card
+    name: Google TV
+    show_name: true
+    show_icon: false
+    styles:
+      card:
+        - height: 96px
+      custom_fields:
+        icon:
+          - width: 48px
+          - height: 48px
+          - margin: 0 auto 8px
+    custom_fields:
+      icon: |
+        [[[
+          return `<img src="/local/magewell-icons/streaming/google-tv.svg" width="48" height="48" alt="Google TV">`;
+        ]]]
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Google TV
+
+  - type: custom:button-card
+    name: Roku
+    show_name: true
+    show_icon: false
+    styles:
+      card:
+        - height: 96px
+      custom_fields:
+        icon:
+          - width: 48px
+          - height: 48px
+          - margin: 0 auto 8px
+    custom_fields:
+      icon: |
+        [[[
+          return `<img src="/local/magewell-icons/streaming/roku.svg" width="48" height="48" alt="Roku">`;
+        ]]]
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Roku
+
+  - type: custom:button-card
+    name: Fire TV
+    show_name: true
+    show_icon: false
+    styles:
+      card:
+        - height: 96px
+      custom_fields:
+        icon:
+          - width: 48px
+          - height: 48px
+          - margin: 0 auto 8px
+    custom_fields:
+      icon: |
+        [[[
+          return `<img src="/local/magewell-icons/streaming/fire-tv.svg" width="48" height="48" alt="Fire TV">`;
+        ]]]
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Fire TV
+
+  - type: custom:button-card
+    name: Cable
+    show_name: true
+    show_icon: false
+    styles:
+      card:
+        - height: 96px
+      custom_fields:
+        icon:
+          - width: 48px
+          - height: 48px
+          - margin: 0 auto 8px
+    custom_fields:
+      icon: |
+        [[[
+          return `<img src="/local/magewell-icons/streaming/cable-tv.svg" width="48" height="48" alt="Cable">`;
+        ]]]
+    tap_action:
+      action: call-service
+      service: magewell_pro_convert_decoder.switch_source
+      service_data:
+        entity_id: select.magewell_decoder_source
+        source: Cable

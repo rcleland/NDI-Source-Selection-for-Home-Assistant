@@ -1,0 +1,48 @@
+# Magewell streaming source catalog
+# Preset names must match your decoder's saved channels (edit as needed).
+#
+# icon_mdi     — works in native button / Mushroom cards (no extra install)
+# icon_local   — copy docs/icons/streaming/ to config/www/ first
+# icon_brand   — Home Assistant brands CDN (when available)
+
+sources:
+  apple_tv:
+    preset_name: Apple TV
+    label: Apple TV
+    icon_mdi: mdi:apple
+    icon_local: /local/magewell-icons/streaming/apple-tv.svg
+
+  google_tv:
+    preset_name: Google TV
+    label: Google TV
+    icon_mdi: mdi:google-chromecast
+    icon_local: /local/magewell-icons/streaming/google-tv.svg
+    icon_brand: https://brands.home-assistant.io/google/icon.png
+
+  roku:
+    preset_name: Roku
+    label: Roku
+    icon_mdi: mdi:television-box
+    icon_local: /local/magewell-icons/streaming/roku.svg
+    icon_brand: https://brands.home-assistant.io/roku/icon.png
+
+  fire_tv:
+    preset_name: Fire TV
+    label: Fire TV
+    icon_mdi: mdi:amazon
+    icon_local: /local/magewell-icons/streaming/fire-tv.svg
+    icon_brand: https://brands.home-assistant.io/amazon/icon.png
+
+  cable:
+    preset_name: Cable
+    label: Cable / HDMI
+    icon_mdi: mdi:television-classic
+    icon_local: /local/magewell-icons/streaming/cable-tv.svg
+
+  security_cam:
+    preset_name: Security cam
+    label: Security cam
+    icon_mdi: mdi:cctv
+    # RTSP example — set url to your camera stream
+    url: rtsp://192.168.1.20:554/stream
+    service: set_http_stream
