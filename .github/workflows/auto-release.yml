@@ -1,0 +1,61 @@
+name: Auto Release
+
+# Every push to main (except release bot commits) bumps the patch version,
+# updates manifest/CHANGELOG, tags, and publishes a GitHub Release for HACS.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  auto-release:
+    if: >-
+      !startsWith(github.event.head_commit.message, 'chore(release):') &&
+      !contains(github.event.head_commit.message, '[skip release]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: home-assistant/actions/hassfest@master
+
+      - uses: hacs/action@main
+        with:
+          category: integration
+
+      - name: Prepare release
+        id: prep
+        run: |
+          git fetch --tags --force
+          COMMIT_MSG=$(git log -1 --pretty=%s)
+          COMMIT_SHA=$(git log -1 --pretty=%h)
+          NEW_VERSION=$(python3 scripts/prepare_release.py \
+            --message "$COMMIT_MSG" \
+            --sha "$COMMIT_SHA" \
+            --release-notes-file /tmp/release_notes.md)
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Prepared release v$NEW_VERSION for: $COMMIT_MSG"
+
+      - name: Commit, tag, and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add custom_components/magewell_pro_convert_decoder/manifest.json CHANGELOG.md
+          git commit -m "chore(release): v${{ steps.prep.outputs.version }}"
+          git tag "v${{ steps.prep.outputs.version }}"
+          git push origin main
+          git push origin "v${{ steps.prep.outputs.version }}"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.prep.outputs.version }}
+          name: v${{ steps.prep.outputs.version }}
+          body_path: /tmp/release_notes.md

@@ -68,7 +68,7 @@ All services accept `entity_id` (your Source select) or `config_entry_id`.
 
 **Dashboard examples:** [docs/dashboard-buttons.md](docs/dashboard-buttons.md) · **Streaming source bar:** [docs/lovelace/streaming-source-bar-mdi.yaml](docs/lovelace/streaming-source-bar-mdi.yaml)
 
-**HACS versioning & default store:** [docs/HACS.md](docs/HACS.md)
+**HACS versioning & default store:** [docs/HACS.md](docs/HACS.md) — automatic patch release on every push to `main`
 
 See [Magewell mwapi docs](https://www.magewell.com/api-docs/pro-convert-decoder-api/) for device API details.
 

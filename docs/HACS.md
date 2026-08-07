@@ -8,50 +8,46 @@ Current repository: [rcleland/NDI-Source-Selection-for-Home-Assistant](https://g
 
 ## How HACS versioning works
 
+Every push to `main` triggers **[Auto Release](../.github/workflows/auto-release.yml)** (unless the commit message starts with `chore(release):` or contains `[skip release]`):
+
+1. Hassfest + HACS validation must pass
+2. Patch version increments from the latest `v*` tag (e.g. `v1.4.3` → `v1.4.4`)
+3. `manifest.json` and `CHANGELOG.md` are updated
+4. A GitHub tag and **Release** are published automatically
+
 HACS reads version information from two places:
 
 | Source | Purpose |
 | --- | --- |
 | `custom_components/.../manifest.json` → `"version"` | Version shown in HA **Settings → Devices & services** |
-| **GitHub Releases** (tags like `v1.4.2`) | Version picker in HACS when installing or upgrading |
+| **GitHub Releases** (tags like `v1.4.4`) | Version picker in HACS when installing or upgrading |
 
 If you publish releases, HACS offers the **5 most recent releases** plus the default branch (`main`). Users can pin a version or pick **Latest** for the newest release.
 
-If you **do not** publish releases, HACS installs whatever is on the default branch — no version picker.
-
-**Recommendation:** always use GitHub Releases for anything you share publicly.
+**Skip auto-release** for work-in-progress pushes: include `[skip release]` in the commit message.
 
 ---
 
-## Release checklist (every version)
+## Manual release (optional)
+
+Automatic releases handle normal workflow. Use manual steps only if you need a **minor/major** bump or the workflow failed.
+
+### Manual checklist
 
 1. **Update the version** in `custom_components/magewell_pro_convert_decoder/manifest.json`
 2. **Add a section** to `CHANGELOG.md` (keep newest at top)
 3. **Commit and push** to `main`
 4. **Create a GitHub Release** (not just a tag):
-   - Go to **Releases → Draft a new release**
-   - Tag: `v1.4.2` (must match manifest, with a `v` prefix)
-   - Title: `v1.4.2` or a short summary
-   - Description: paste the CHANGELOG section for that version
+   - Tag: `v1.5.0` (must match manifest, with a `v` prefix)
    - Publish release
-5. **Verify** the [Validate](https://github.com/rcleland/NDI-Source-Selection-for-Home-Assistant/actions) workflow passed on `main`
 
-After publishing, HACS users see the new version within a few hours (on next HACS refresh).
+Pushing a `v*` tag triggers the [Release workflow](../.github/workflows/release.yml), which validates and publishes the release if the tag matches `manifest.json`.
 
-### Quick release from the command line
+### Preview next version locally
 
 ```bash
-# After bumping manifest.json and CHANGELOG.md:
-git add custom_components/magewell_pro_convert_decoder/manifest.json CHANGELOG.md
-git commit -m "Release v1.4.2"
-git push origin main
-git tag v1.4.2
-git push origin v1.4.2
+python3 scripts/prepare_release.py --dry-run
 ```
-
-Then open GitHub → **Releases → Draft a new release** → select tag `v1.4.2` → publish.
-
-Pushing a `v*` tag also triggers the [Release workflow](../.github/workflows/release.yml), which creates the GitHub Release automatically if CI passes.
 
 ---
 
@@ -82,7 +78,7 @@ Official guide: [Include default repositories](https://hacs.xyz/docs/publish/inc
 | Valid integration `manifest.json` with `version` | ✅ |
 | Brand assets (`brand/icon.png`) | ✅ |
 | [Hassfest + HACS Action](https://github.com/rcleland/NDI-Source-Selection-for-Home-Assistant/actions) passing on `main` | Verify green ✅ |
-| At least **one GitHub Release** published | ⬜ Create `v1.4.2` (or current version) |
+| At least **one GitHub Release** published | ✅ Auto Release on every push to `main` |
 | Repository **description** set on GitHub | ⬜ Settings → General → Description |
 | **Issues** enabled | ⬜ Settings → General → Features |
 | **Topics** on GitHub (e.g. `home-assistant`, `hacs`, `magewell`, `ndi`) | ⬜ Settings → General → Topics |
@@ -118,13 +114,21 @@ After merge, your integration appears in the default store on the next HACS scan
 
 ## Version numbering convention
 
-Use [Semantic Versioning](https://semver.org/):
+Automatic releases always increment the **patch** version from the latest tag.
 
-- **Patch** (`1.4.2` → `1.4.3`): bug fixes
-- **Minor** (`1.4.2` → `1.5.0`): new features, backward compatible
-- **Major** (`1.4.2` → `2.0.0`): breaking changes
+For **minor** or **major** bumps, edit `manifest.json` manually before pushing, or run:
+
+```bash
+# Example: set next release to 1.5.0 manually in manifest.json, update CHANGELOG, then push
+```
 
 Always keep `manifest.json` `"version"` in sync with the GitHub release tag (without the `v` prefix in manifest, with `v` on the tag).
+
+Use [Semantic Versioning](https://semver.org/) when choosing manual version numbers:
+
+- **Patch** (`1.4.2` → `1.4.3`): bug fixes — automatic
+- **Minor** (`1.4.2` → `1.5.0`): new features, backward compatible — manual manifest bump before push
+- **Major** (`1.4.2` → `2.0.0`): breaking changes — manual manifest bump before push
 
 ---
 

@@ -40,9 +40,11 @@ Copy `custom_components/magewell_pro_convert_decoder/` into `config/custom_compo
 
 ### Versions and upgrades
 
-HACS tracks versions via **GitHub Releases**. After installing, use HACS → **Magewell Pro Convert Decoder** → select a release (e.g. `v1.4.2`) or **Update** when a new release is published.
+Every push to `main` automatically publishes a new **patch release** for HACS (e.g. `v1.4.3` → `v1.4.4`). In HACS, open **Magewell Pro Convert Decoder** to pick a release or tap **Update** when a new version is available.
 
-See [docs/HACS.md](docs/HACS.md) for the release checklist and publishing guide.
+To skip auto-release on a push, include `[skip release]` in the commit message.
+
+See [docs/HACS.md](docs/HACS.md) for the full publishing guide and default-store submission steps.
 
 ---
 
