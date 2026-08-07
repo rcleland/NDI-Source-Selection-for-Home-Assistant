@@ -1,0 +1,106 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Magewell Pro Convert Decoder",
+        "description": "Uses the Decoder HTTP API (GET /mwapi?method=ping). Hostname or IP address both work for device communication.",
+        "data": {
+          "host": "Hostname or IP address",
+          "port": "Port (leave empty for 80 / 443)",
+          "use_ssl": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate",
+          "username": "API username (often Admin)",
+          "password": "API password (stored encrypted; MD5 sent to device per Magewell login API)"
+        },
+        "data_description": {
+          "host": "Use the device hostname (e.g. magewell-decoder.local) or its IP address. You can switch later via Reconfigure."
+        }
+      },
+      "reconfigure": {
+        "title": "Update Magewell Decoder",
+        "description": "Change hostname/IP, SSL, or login. Leave password blank to keep the current password.",
+        "data": {
+          "host": "Hostname or IP address",
+          "port": "Port (leave empty for 80 / 443)",
+          "use_ssl": "Use HTTPS",
+          "verify_ssl": "Verify SSL certificate",
+          "username": "API username",
+          "password": "API password"
+        },
+        "data_description": {
+          "host": "Switch between hostname and IP at any time; both are supported for mwapi requests."
+        }
+      }
+    },
+    "error": {
+      "invalid_host": "Enter a valid hostname or IP address (without http://).",
+      "cannot_connect": "Could not reach the device or the response was not valid JSON. Check host, port, and SSL settings.",
+      "auth_required": "This decoder requires mwapi login. Enter username and password (see Magewell login API — pass is MD5 of password).",
+      "invalid_auth": "Login failed. Check username and password (Magewell status 36 = wrong id or password).",
+      "auth_session_failed": "Login succeeded but the device still reports not logged in on the next call. Check hostname/IP and port, then reload the integration."
+    },
+    "abort": {
+      "reconfigure_successful": "Configuration updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Magewell Pro Convert Decoder",
+        "data": {
+          "scan_interval": "Polling interval (seconds)"
+        }
+      }
+    }
+  },
+  "services": {
+    "switch_source": {
+      "name": "Switch source by name",
+      "description": "Select a preset or NDI source using a plain name. Use from dashboard buttons and automations.",
+      "fields": {
+        "config_entry_id": { "name": "Config entry", "description": "This Magewell Decoder instance (optional if entity_id is set)." },
+        "entity_id": { "name": "Source entity", "description": "The Source select entity for this decoder (optional if config entry is set)." },
+        "source": { "name": "Source name", "description": "Preset or NDI name, e.g. Apple TV." },
+        "source_type": {
+          "name": "Source type",
+          "description": "auto tries preset then NDI; ndi or preset forces the type."
+        }
+      }
+    },
+    "set_ndi_stream": {
+      "name": "Set NDI stream by name",
+      "description": "Selects an NDI source by exact name, or creates an ntkndi preset if the device requires it.",
+      "fields": {
+        "config_entry_id": { "name": "Config entry", "description": "This Magewell Decoder integration instance (optional if entity_id is set)." },
+        "entity_id": { "name": "Source entity", "description": "The Source select entity (optional if config entry is set)." },
+        "ndi_name": { "name": "NDI stream name", "description": "Exact NDI name as shown in discovery or on the sender." },
+        "ndi_ip_port": { "name": "NDI host:port", "description": "Optional. Required for ntkndi fallback if set-channel fails and discovery has no match (e.g. 192.168.1.10:5961)." },
+        "preset_label": { "name": "Preset label", "description": "Channel name used when add-channel is needed (1–120 characters)." },
+        "buffer_duration": { "name": "Buffer (ms)", "description": "mw-buffer-duration for ntkndi preset URL." }
+      }
+    },
+    "set_http_stream": {
+      "name": "Set HTTP stream and select",
+      "description": "Adds or updates a URL preset and switches the decoder to it.",
+      "fields": {
+        "config_entry_id": { "name": "Config entry", "description": "This Magewell Decoder integration instance (optional if entity_id is set)." },
+        "entity_id": { "name": "Source entity", "description": "The Source select entity (optional if config entry is set)." },
+        "channel_name": { "name": "Preset name", "description": "Label in the decoder source list (1–120 characters)." },
+        "url": { "name": "Stream URL", "description": "Full URL including query (e.g. http://…?mw-buffer-duration=60)." },
+        "update_if_exists": { "name": "Update if exists", "description": "If the preset name already exists, modify its URL instead of failing." }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "decoder_reachable": {
+        "name": "Reachable"
+      }
+    },
+    "select": {
+      "decode_source": {
+        "name": "Source"
+      }
+    }
+  }
+}

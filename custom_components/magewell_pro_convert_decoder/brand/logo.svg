@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="512" viewBox="0 0 1024 512" role="img" aria-label="Magewell Pro Convert Decoder">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#102c58"/>
+      <stop offset="100%" stop-color="#08829b"/>
+    </linearGradient>
+  </defs>
+  <rect x="40" y="56" width="400" height="400" rx="88" fill="url(#bg)"/>
+  <rect x="98" y="114" width="284" height="194" rx="22" fill="rgba(255,255,255,0.14)" stroke="#ffffff" stroke-width="6"/>
+  <rect x="176" y="324" width="104" height="30" rx="8" fill="#ffffff"/>
+  <g stroke="#78dcff" stroke-width="6" stroke-linecap="round">
+    <line x1="74" y1="180" x2="148" y2="180"/>
+    <line x1="74" y1="210" x2="148" y2="210"/>
+    <line x1="74" y1="240" x2="148" y2="240"/>
+  </g>
+  <polygon points="148,180 134,170 134,190" fill="#78dcff"/>
+  <polygon points="148,210 134,200 134,220" fill="#78dcff"/>
+  <polygon points="148,240 134,230 134,250" fill="#78dcff"/>
+  <polygon points="236,210 220,194 220,226" fill="#ffffff"/>
+  <text x="500" y="210" fill="#102c58" font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="700">Magewell</text>
+  <text x="500" y="290" fill="#08829b" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="500">Pro Convert Decoder</text>
+</svg>

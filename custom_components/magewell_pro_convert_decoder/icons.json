@@ -1,0 +1,25 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "decoder_reachable": {
+        "default": "mdi:lan-connect"
+      }
+    },
+    "select": {
+      "decode_source": {
+        "default": "mdi:video-switch"
+      }
+    }
+  },
+  "services": {
+    "switch_source": {
+      "service": "mdi:video-switch"
+    },
+    "set_ndi_stream": {
+      "service": "mdi:video-wireless"
+    },
+    "set_http_stream": {
+      "service": "mdi:web-box"
+    }
+  }
+}
