@@ -1,10 +1,12 @@
 name: Auto Release
 
-# Every push to main (except release bot commits) bumps the patch version,
-# updates manifest/CHANGELOG, tags, and publishes a GitHub Release for HACS.
+# Runs after Validate succeeds on main. Bumps patch version, updates
+# manifest/CHANGELOG, tags, and publishes a GitHub Release for HACS.
 
 on:
-  push:
+  workflow_run:
+    workflows: [Validate]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -20,23 +22,31 @@ jobs:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (
-        !startsWith(github.event.head_commit.message, 'chore(release):') &&
-        !contains(github.event.head_commit.message, '[skip release]')
+        github.event_name == 'workflow_run' &&
+        github.event.workflow_run.conclusion == 'success'
       )
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: home-assistant/actions/hassfest@master
-
-      - uses: hacs/action@main
-        with:
-          category: integration
+      - name: Skip release bot commits
+        id: gate
+        run: |
+          MSG=$(git log -1 --pretty=%s)
+          echo "Commit: $MSG"
+          if [[ "$MSG" == chore(release):* ]] || [[ "$MSG" == *"[skip release]"* ]]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "Skipping auto-release for this commit."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Prepare release
+        if: steps.gate.outputs.skip == 'false'
         id: prep
         run: |
           git fetch --tags --force
@@ -50,6 +60,7 @@ jobs:
           echo "Prepared release v$NEW_VERSION for: $COMMIT_MSG"
 
       - name: Commit, tag, and push
+        if: steps.gate.outputs.skip == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -57,11 +68,12 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add custom_components/magewell_pro_convert_decoder/manifest.json CHANGELOG.md
           git commit -m "chore(release): v${{ steps.prep.outputs.version }}"
-          git tag -a "v${{ steps.prep.outputs.version }}" -m "Release v${{ steps.prep.outputs.version }}"
+          git tag -fa "v${{ steps.prep.outputs.version }}" -m "Release v${{ steps.prep.outputs.version }}"
           git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" HEAD:main
-          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" "v${{ steps.prep.outputs.version }}"
+          git push --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" "v${{ steps.prep.outputs.version }}"
 
       - uses: softprops/action-gh-release@v2
+        if: steps.gate.outputs.skip == 'false'
         with:
           tag_name: v${{ steps.prep.outputs.version }}
           name: v${{ steps.prep.outputs.version }}

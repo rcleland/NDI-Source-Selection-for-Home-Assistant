@@ -30,6 +30,8 @@ If you publish releases, HACS offers the **5 most recent releases** plus the def
 
 If a release fails, open **Actions → Auto Release → Run workflow** to retry manually.
 
+To publish a GitHub Release for an **existing tag** (e.g. backfill `v1.4.3`), use **Actions → Backfill Release**.
+
 ---
 
 ## Manual release (optional)
