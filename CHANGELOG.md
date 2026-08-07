@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## [1.4.4] - 2026-08-07
+
+### Fixed
+- Config flow 500 on latest Home Assistant: port schema now uses serializable selectors only (removed `vol.Any` / `vol.Coerce` that broke frontend schema loading)
+- Options flow uses `add_suggested_values_to_schema()` for scan interval
+
 ## [1.4.3] - 2026-08-07
 
 ### Added

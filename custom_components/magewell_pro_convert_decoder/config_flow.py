@@ -36,6 +36,12 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+_CONNECTION_DEFAULTS: dict[str, Any] = {
+    CONF_USE_SSL: False,
+    CONF_VERIFY_SSL: True,
+    "port": "",
+}
+
 
 def _password_text_selector() -> TextSelector:
     """Mask password in UI when supported; plain TextSelector otherwise."""
@@ -47,25 +53,23 @@ def _password_text_selector() -> TextSelector:
         return TextSelector()
 
 
-_PORT_SELECTOR = vol.All(
-    NumberSelector(
-        NumberSelectorConfig(
-            mode=NumberSelectorMode.BOX,
-            min=1,
-            max=65535,
-        )
-    ),
-    vol.Coerce(int),
-)
+def _parse_port_value(raw: Any) -> int | None:
+    """Return port int, None if blank, raise ValueError if invalid."""
+    if raw in (None, ""):
+        return None
+    port = int(str(raw).strip())
+    if not 1 <= port <= 65535:
+        raise ValueError("invalid port")
+    return port
 
 
 def _resolve_port(user_input: dict[str, Any]) -> int:
     """Default empty port to 80/443 based on SSL."""
     use_ssl = bool(user_input[CONF_USE_SSL])
-    port = user_input.get("port")
-    if port in (None, ""):
+    port = _parse_port_value(user_input.get("port"))
+    if port is None:
         return DEFAULT_PORT_HTTPS if use_ssl else DEFAULT_PORT_HTTP
-    return int(port)
+    return port
 
 
 class CannotConnect(Exception):
@@ -167,12 +171,12 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
 
 
 def _connection_schema() -> vol.Schema:
-    """Static schema; pre-fill with add_suggested_values_to_schema()."""
+    """Frontend-serializable schema (selectors only, no vol.Coerce/vol.Any)."""
     return vol.Schema(
         {
             vol.Required("host"): TextSelector(),
-            # Empty port is allowed; async_step_* defaults to 80/443 after schema validation.
-            vol.Optional("port"): vol.Any("", _PORT_SELECTOR),
+            # TextSelector allows blank; port is parsed in async_step_*.
+            vol.Optional("port"): TextSelector(),
             vol.Required(CONF_USE_SSL): BooleanSelector(),
             vol.Required(CONF_VERIFY_SSL): BooleanSelector(),
             vol.Optional(CONF_USERNAME): TextSelector(),
@@ -187,6 +191,14 @@ def _prepare_connection_input(user_input: dict[str, Any]) -> dict[str, Any]:
     prepared["host"] = normalize_host(prepared["host"])
     prepared["port"] = _resolve_port(prepared)
     return prepared
+
+
+def _connection_suggested(user_input: dict[str, Any] | None) -> dict[str, Any]:
+    """Merge user input with form defaults for add_suggested_values_to_schema()."""
+    suggested = dict(_CONNECTION_DEFAULTS)
+    if user_input:
+        suggested.update(user_input)
+    return suggested
 
 
 class MagewellDecoderConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -210,44 +222,49 @@ class MagewellDecoderConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not is_host_valid(host):
                 errors["host"] = "invalid_host"
             else:
-                prepared = _prepare_connection_input(user_input)
-                use_ssl = prepared[CONF_USE_SSL]
                 try:
-                    await validate_input(self.hass, prepared)
-                except CannotConnect:
-                    errors["base"] = "cannot_connect"
-                except AuthRequired:
-                    errors["base"] = "auth_required"
-                except InvalidAuth:
-                    errors["base"] = "invalid_auth"
-                except AuthSessionFailed:
-                    errors["base"] = "auth_session_failed"
+                    _parse_port_value(user_input.get("port"))
+                except ValueError:
+                    errors["port"] = "invalid_port"
                 else:
-                    await self.async_set_unique_id(
-                        connection_unique_id(host, prepared["port"], use_ssl)
-                    )
-                    self._abort_if_unique_id_configured()
-                    data: dict[str, Any] = {
-                        "host": host,
-                        "port": prepared["port"],
-                        CONF_USE_SSL: use_ssl,
-                        CONF_VERIFY_SSL: prepared[CONF_VERIFY_SSL],
-                    }
-                    u = (prepared.get(CONF_USERNAME) or "").strip()
-                    if u:
-                        data[CONF_USERNAME] = u
-                    if prepared.get(CONF_PASSWORD):
-                        data[CONF_PASSWORD] = prepared[CONF_PASSWORD]
-                    return self.async_create_entry(
-                        title=f"Magewell Decoder ({host})",
-                        data=data,
-                        options={"scan_interval": DEFAULT_SCAN_INTERVAL},
-                    )
+                    prepared = _prepare_connection_input(user_input)
+                    use_ssl = prepared[CONF_USE_SSL]
+                    try:
+                        await validate_input(self.hass, prepared)
+                    except CannotConnect:
+                        errors["base"] = "cannot_connect"
+                    except AuthRequired:
+                        errors["base"] = "auth_required"
+                    except InvalidAuth:
+                        errors["base"] = "invalid_auth"
+                    except AuthSessionFailed:
+                        errors["base"] = "auth_session_failed"
+                    else:
+                        await self.async_set_unique_id(
+                            connection_unique_id(host, prepared["port"], use_ssl)
+                        )
+                        self._abort_if_unique_id_configured()
+                        data: dict[str, Any] = {
+                            "host": host,
+                            "port": prepared["port"],
+                            CONF_USE_SSL: use_ssl,
+                            CONF_VERIFY_SSL: prepared[CONF_VERIFY_SSL],
+                        }
+                        u = (prepared.get(CONF_USERNAME) or "").strip()
+                        if u:
+                            data[CONF_USERNAME] = u
+                        if prepared.get(CONF_PASSWORD):
+                            data[CONF_PASSWORD] = prepared[CONF_PASSWORD]
+                        return self.async_create_entry(
+                            title=f"Magewell Decoder ({host})",
+                            data=data,
+                            options={"scan_interval": DEFAULT_SCAN_INTERVAL},
+                        )
 
         return self.async_show_form(
             step_id="user",
             data_schema=self.add_suggested_values_to_schema(
-                _connection_schema(), user_input or {}
+                _connection_schema(), _connection_suggested(user_input)
             ),
             errors=errors,
         )
@@ -264,52 +281,61 @@ class MagewellDecoderConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if not is_host_valid(host):
                 errors["host"] = "invalid_host"
             else:
-                prepared = _prepare_connection_input(user_input)
-                new_data: dict[str, Any] = {
-                    "host": host,
-                    "port": prepared["port"],
-                    CONF_USE_SSL: prepared[CONF_USE_SSL],
-                    CONF_VERIFY_SSL: prepared[CONF_VERIFY_SSL],
-                }
-                u = (prepared.get(CONF_USERNAME) or "").strip()
-                if u:
-                    new_data[CONF_USERNAME] = u
-                elif CONF_USERNAME in entry.data:
-                    new_data[CONF_USERNAME] = entry.data[CONF_USERNAME]
-                if prepared.get(CONF_PASSWORD):
-                    new_data[CONF_PASSWORD] = prepared[CONF_PASSWORD]
-                elif CONF_PASSWORD in entry.data:
-                    new_data[CONF_PASSWORD] = entry.data[CONF_PASSWORD]
                 try:
-                    await validate_input(self.hass, new_data)
-                except CannotConnect:
-                    errors["base"] = "cannot_connect"
-                except AuthRequired:
-                    errors["base"] = "auth_required"
-                except InvalidAuth:
-                    errors["base"] = "invalid_auth"
-                except AuthSessionFailed:
-                    errors["base"] = "auth_session_failed"
+                    _parse_port_value(user_input.get("port"))
+                except ValueError:
+                    errors["port"] = "invalid_port"
                 else:
-                    self.hass.config_entries.async_update_entry(
-                        entry,
-                        data=new_data,
-                        unique_id=connection_unique_id(
-                            host,
-                            prepared["port"],
-                            prepared[CONF_USE_SSL],
-                        ),
-                    )
-                    return self.async_abort(reason="reconfigure_successful")
+                    prepared = _prepare_connection_input(user_input)
+                    new_data: dict[str, Any] = {
+                        "host": host,
+                        "port": prepared["port"],
+                        CONF_USE_SSL: prepared[CONF_USE_SSL],
+                        CONF_VERIFY_SSL: prepared[CONF_VERIFY_SSL],
+                    }
+                    u = (prepared.get(CONF_USERNAME) or "").strip()
+                    if u:
+                        new_data[CONF_USERNAME] = u
+                    elif CONF_USERNAME in entry.data:
+                        new_data[CONF_USERNAME] = entry.data[CONF_USERNAME]
+                    if prepared.get(CONF_PASSWORD):
+                        new_data[CONF_PASSWORD] = prepared[CONF_PASSWORD]
+                    elif CONF_PASSWORD in entry.data:
+                        new_data[CONF_PASSWORD] = entry.data[CONF_PASSWORD]
+                    try:
+                        await validate_input(self.hass, new_data)
+                    except CannotConnect:
+                        errors["base"] = "cannot_connect"
+                    except AuthRequired:
+                        errors["base"] = "auth_required"
+                    except InvalidAuth:
+                        errors["base"] = "invalid_auth"
+                    except AuthSessionFailed:
+                        errors["base"] = "auth_session_failed"
+                    else:
+                        self.hass.config_entries.async_update_entry(
+                            entry,
+                            data=new_data,
+                            unique_id=connection_unique_id(
+                                host,
+                                prepared["port"],
+                                prepared[CONF_USE_SSL],
+                            ),
+                        )
+                        return self.async_abort(reason="reconfigure_successful")
 
-        suggested = user_input or {
-            "host": entry.data["host"],
-            "port": entry.data["port"],
-            CONF_USE_SSL: entry.data[CONF_USE_SSL],
-            CONF_VERIFY_SSL: entry.data.get(CONF_VERIFY_SSL, True),
-            CONF_USERNAME: entry.data.get(CONF_USERNAME, ""),
-            CONF_PASSWORD: "",
-        }
+        suggested = _connection_suggested(user_input)
+        port = entry.data.get("port")
+        suggested.update(
+            {
+                "host": entry.data["host"],
+                "port": "" if port in (None, "") else str(port),
+                CONF_USE_SSL: entry.data[CONF_USE_SSL],
+                CONF_VERIFY_SSL: entry.data.get(CONF_VERIFY_SSL, True),
+                CONF_USERNAME: entry.data.get(CONF_USERNAME, ""),
+                CONF_PASSWORD: "",
+            }
+        )
         return self.async_show_form(
             step_id="reconfigure",
             data_schema=self.add_suggested_values_to_schema(
@@ -328,15 +354,11 @@ class MagewellDecoderOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        current = int(
-            self.config_entry.options.get("scan_interval", DEFAULT_SCAN_INTERVAL)
-        )
+        entry = self.config_entry
+        current = int(entry.options.get("scan_interval", DEFAULT_SCAN_INTERVAL))
         schema = vol.Schema(
             {
-                vol.Required(
-                    "scan_interval",
-                    default=current,
-                ): NumberSelector(
+                vol.Required("scan_interval"): NumberSelector(
                     NumberSelectorConfig(
                         mode=NumberSelectorMode.SLIDER,
                         min=10,
@@ -347,4 +369,9 @@ class MagewellDecoderOptionsFlow(config_entries.OptionsFlow):
                 ),
             }
         )
-        return self.async_show_form(step_id="init", data_schema=schema)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=self.add_suggested_values_to_schema(
+                schema, {"scan_interval": current}
+            ),
+        )

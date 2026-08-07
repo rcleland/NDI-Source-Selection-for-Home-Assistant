@@ -34,6 +34,7 @@
     },
     "error": {
       "invalid_host": "Enter a valid hostname or IP address (without http://).",
+      "invalid_port": "Port must be between 1 and 65535, or leave blank for 80 / 443.",
       "cannot_connect": "Could not reach the device or the response was not valid JSON. Check host, port, and SSL settings.",
       "auth_required": "This decoder requires mwapi login. Enter username and password (see Magewell login API — pass is MD5 of password).",
       "invalid_auth": "Login failed. Check username and password (Magewell status 36 = wrong id or password).",
