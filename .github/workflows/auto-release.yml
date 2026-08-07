@@ -6,6 +6,7 @@ name: Auto Release
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,13 +18,17 @@ concurrency:
 jobs:
   auto-release:
     if: >-
-      !startsWith(github.event.head_commit.message, 'chore(release):') &&
-      !contains(github.event.head_commit.message, '[skip release]')
+      github.event_name == 'workflow_dispatch' ||
+      (
+        !startsWith(github.event.head_commit.message, 'chore(release):') &&
+        !contains(github.event.head_commit.message, '[skip release]')
+      )
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: home-assistant/actions/hassfest@master
 
@@ -45,17 +50,20 @@ jobs:
           echo "Prepared release v$NEW_VERSION for: $COMMIT_MSG"
 
       - name: Commit, tag, and push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add custom_components/magewell_pro_convert_decoder/manifest.json CHANGELOG.md
           git commit -m "chore(release): v${{ steps.prep.outputs.version }}"
-          git tag "v${{ steps.prep.outputs.version }}"
-          git push origin main
-          git push origin "v${{ steps.prep.outputs.version }}"
+          git tag -a "v${{ steps.prep.outputs.version }}" -m "Release v${{ steps.prep.outputs.version }}"
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" HEAD:main
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" "v${{ steps.prep.outputs.version }}"
 
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.prep.outputs.version }}
           name: v${{ steps.prep.outputs.version }}
           body_path: /tmp/release_notes.md
+          token: ${{ secrets.GITHUB_TOKEN }}

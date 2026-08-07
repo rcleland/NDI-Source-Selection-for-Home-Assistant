@@ -26,6 +26,10 @@ If you publish releases, HACS offers the **5 most recent releases** plus the def
 
 **Skip auto-release** for work-in-progress pushes: include `[skip release]` in the commit message.
 
+**Repo setting required:** GitHub → **Settings → Actions → General → Workflow permissions** → **Read and write permissions** (allows the bot to push version commits and tags).
+
+If a release fails, open **Actions → Auto Release → Run workflow** to retry manually.
+
 ---
 
 ## Manual release (optional)
